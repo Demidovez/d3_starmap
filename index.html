@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>D3 StarMap</title>
+    <script type="text/javascript" src="../lib/d3.min.js"></script>
+    <script
+      type="text/javascript"
+      src="../lib/d3.geo.projection.min.js"
+    ></script>
+  </head>
+  <body>
+    <div id="celestial-map"></div>
+  </body>
+  <script>
+    var data = [1, 2, 3, 4, 5, 100];
+    var pow = d3.scalePow().exponent(2).domain([2, 20]).range([33, 60]);
+
+    for (var i = 0; i < data.length; i++) data[i] = pow(data[i]);
+
+    console.log(data);
+  </script>
+</html>
