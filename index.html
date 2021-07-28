@@ -3,21 +3,75 @@
   <head>
     <meta charset="utf-8" />
     <title>D3 StarMap</title>
-    <script type="text/javascript" src="../lib/d3.min.js"></script>
-    <script
-      type="text/javascript"
-      src="../lib/d3.geo.projection.min.js"
-    ></script>
+    <!-- <link rel="stylesheet" href="lib/normalize.min.css" />
+    <script type="text/javascript" src="lib/d3.min.js"></script>
+    <script type="text/javascript" src="lib/d3.geo.projection.min.js"></script>
+    <script type="text/javascript" src="lib/topojson.v3.min.js"></script> -->
+    <link
+      rel="stylesheet"
+      href="//cdnjs.cloudflare.com/ajax/libs/normalize/3.0.1/normalize.min.css"
+    />
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="http://d3js.org/topojson.v1.min.js"></script>
+    <script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
+    <style>
+      svg {
+        background-color: #000000;
+      }
+      .star {
+        fill: #ffffff;
+      }
+    </style>
   </head>
   <body>
-    <div id="celestial-map"></div>
+    <script>
+      // Ширина и высота будущей карты
+      var width = 800;
+      var height = 800;
+
+      // Создаём функцию проекции
+      var projection = d3.geo
+        .orthographic()
+        .center([0, 0])
+        .scale(width / 2)
+        // .clipAngle(90)
+        .translate([width / 2, height / 2])
+        .rotate([0, 0]);
+
+      // Создаем функцию, которая будет преобразовывать географические координаты в формат пути для элемента <path>
+      var path = d3.geo.path().projection(projection);
+
+      // Создаём элемент <svg>, где и будет рисоваться карта
+      var svg = d3
+        .select("body")
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+      // Создаем элемент группы <g>, в который будут вкладываться все другие элементы
+      var g = svg.append("g");
+
+      // Загружаем карту
+      d3.json("data/stars.6.json", function (error, stars) {
+        if (error) {
+          console.log(error);
+          return;
+        }
+
+        // Получаем массив стран из файла TopoJSON в формате GeoJSON
+        // var stars = topojson.feature(stars, stars.objects.asterisms).features;
+        var stars = stars.features;
+
+        // Рисуем карту
+        g.selectAll(".star")
+          .data(stars)
+          .enter()
+          .append("path")
+          .attr("class", "star")
+          .attr("d", path);
+
+        //g.selectAll(".star").each((d) => {});
+      });
+    </script>
   </body>
-  <script>
-    var data = [1, 2, 3, 4, 5, 100];
-    var pow = d3.scalePow().exponent(2).domain([2, 20]).range([33, 60]);
-
-    for (var i = 0; i < data.length; i++) data[i] = pow(data[i]);
-
-    console.log(data);
-  </script>
 </html>
