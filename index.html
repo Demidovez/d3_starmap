@@ -21,22 +21,52 @@
       .star {
         fill: #ffffff;
       }
+      .graticule {
+        fill: none;
+        stroke: #cccccc;
+        stroke-width: 0.6;
+        opacity: 0.8;
+      }
+      .lines {
+        fill: none;
+        stroke: #cccccc;
+        stroke-width: 0.6;
+        opacity: 0.8;
+      }
     </style>
   </head>
   <body>
     <script>
+      const cnf = {
+        width: 800,
+        center: [0, 0],
+        latitude: 30,
+        longtitude: 40,
+        stars: {
+          size: 5,
+          exponent: -0.28,
+          data_path: "data/stars.6.json",
+        },
+        graticule: {
+          show: true,
+        },
+        constellation: {
+          show: true,
+          data_path: "data/constellations.lines.json",
+        },
+      };
       // Ширина и высота будущей карты
-      var width = 800;
-      var height = 800;
+      var width = cnf.width;
+      var height = cnf.width;
 
       // Создаём функцию проекции
       var projection = d3.geo
         .orthographic()
-        .center([0, 0])
+        .center(cnf.center)
         .scale(width / 2)
-        // .clipAngle(90)
+        .clipAngle(90)
         .translate([width / 2, height / 2])
-        .rotate([0, 0]);
+        .rotate([cnf.latitude, cnf.longtitude]);
 
       // Создаем функцию, которая будет преобразовывать географические координаты в формат пути для элемента <path>
       var path = d3.geo.path().projection(projection);
@@ -48,30 +78,76 @@
         .attr("width", width)
         .attr("height", height);
 
+      // Сетка
+      var graticule = d3.geo.graticule().minorStep([15, 10]);
+      svg
+        .append("path")
+        .datum(graticule)
+        .attr("class", "graticule")
+        .attr("d", path);
+
       // Создаем элемент группы <g>, в который будут вкладываться все другие элементы
       var g = svg.append("g");
 
       // Загружаем карту
-      d3.json("data/stars.6.json", function (error, stars) {
+      d3.json(cnf.stars.data_path, function (error, stars) {
         if (error) {
           console.log(error);
           return;
         }
 
-        // Получаем массив стран из файла TopoJSON в формате GeoJSON
-        // var stars = topojson.feature(stars, stars.objects.asterisms).features;
+        // Получаем массив звезд из файла
         var stars = stars.features;
 
-        // Рисуем карту
+        // Рисуем звезды
         g.selectAll(".star")
           .data(stars)
           .enter()
-          .append("path")
+          .append("circle")
           .attr("class", "star")
-          .attr("d", path);
+          .attr("opacity", function (d) {
+            var geoangle = d3.geo.distance(
+              [-cnf.latitude, -cnf.longtitude],
+              d.geometry.coordinates
+            );
 
-        //g.selectAll(".star").each((d) => {});
+            if (geoangle > 1.5707963267949) {
+              return "0";
+            } else {
+              return "1.0";
+            }
+          })
+          .attr("r", (d) => starSize(d))
+          .attr("cx", (d) => projection(d.geometry.coordinates)[0])
+          .attr("cy", (d) => projection(d.geometry.coordinates)[1]);
       });
+
+      // Загружаем созвездия
+      d3.json(cnf.constellation.data_path, function (error, lines) {
+        if (error) {
+          console.log(error);
+          return;
+        }
+
+        // Получаем массив созвездий из файла
+        var lines = lines.features;
+
+        // Рисуем созвездия
+        g.selectAll(".lines")
+          .data(lines)
+          .enter()
+          .append("path")
+          .attr("class", "lines")
+          .attr("d", path);
+      });
+    </script>
+    <script>
+      function starSize(d) {
+        var mag = d.properties.mag;
+        if (mag === null) return 0.1;
+        var r = cnf.stars.size * Math.exp(cnf.stars.exponent * (mag + 2));
+        return Math.max(r, 0.1);
+      }
     </script>
   </body>
 </html>
