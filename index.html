@@ -14,6 +14,7 @@
     <script src="http://d3js.org/d3.v3.min.js"></script>
     <script src="http://d3js.org/topojson.v1.min.js"></script>
     <script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
+    <script src="./scripts.js"></script>
     <style>
       svg {
         background-color: #000000;
@@ -39,9 +40,9 @@
     <script>
       const cnf = {
         width: 800,
-        center: [0, 0],
-        latitude: 30,
-        longtitude: 40,
+        latitude: 52.6218,
+        longtitude: 29.7133,
+        date: new Date(),
         stars: {
           size: 5,
           exponent: -0.28,
@@ -55,18 +56,31 @@
           data_path: "data/constellations.lines.json",
         },
       };
+
       // Ширина и высота будущей карты
       var width = cnf.width;
       var height = cnf.width;
 
+      var localZone = -cnf.date.getTimezoneOffset();
+      var timeZone = localZone;
+      var dtc = new Date(cnf.date.getTime() - (timeZone - localZone) * 60000);
+      var zenith = transformDeg(
+        getAzimutPoint(dtc, [90, 0], [cnf.latitude, cnf.longtitude]),
+        euler["ecliptic"]
+      );
+
+      var coordinates = [-zenith[0], -zenith[1], 0];
+
+      console.log(coordinates);
+
       // Создаём функцию проекции
-      var projection = d3.geo
-        .orthographic()
-        .center(cnf.center)
+      var projection = getProjection()
         .scale(width / 2)
         .clipAngle(90)
         .translate([width / 2, height / 2])
-        .rotate([cnf.latitude, cnf.longtitude]);
+        .rotate(coordinates);
+
+      // console.log(projection.center());
 
       // Создаем функцию, которая будет преобразовывать географические координаты в формат пути для элемента <path>
       var path = d3.geo.path().projection(projection);
@@ -97,7 +111,7 @@
         }
 
         // Получаем массив звезд из файла
-        var stars = stars.features;
+        var stars = getData(stars, "ecliptic").features;
 
         // Рисуем звезды
         g.selectAll(".star")
@@ -107,7 +121,7 @@
           .attr("class", "star")
           .attr("opacity", function (d) {
             var geoangle = d3.geo.distance(
-              [-cnf.latitude, -cnf.longtitude],
+              [-coordinates[0], -coordinates[1]],
               d.geometry.coordinates
             );
 
@@ -130,7 +144,7 @@
         }
 
         // Получаем массив созвездий из файла
-        var lines = lines.features;
+        var lines = getData(lines, "ecliptic").features;
 
         // Рисуем созвездия
         g.selectAll(".lines")
@@ -140,14 +154,6 @@
           .attr("class", "lines")
           .attr("d", path);
       });
-    </script>
-    <script>
-      function starSize(d) {
-        var mag = d.properties.mag;
-        if (mag === null) return 0.1;
-        var r = cnf.stars.size * Math.exp(cnf.stars.exponent * (mag + 2));
-        return Math.max(r, 0.1);
-      }
     </script>
   </body>
 </html>
