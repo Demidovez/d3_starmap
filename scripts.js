@@ -400,3 +400,38 @@ function moonSymbol(p, r) {
   var size = r ? r * r : 121;
   return d3.svg.customSymbol().type("crescent").size(size).ratio(p.age)();
 }
+
+function saveSvg() {
+  var svg = document.getElementById("svg");
+
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  var svgData = svg.outerHTML;
+  var preface = '<?xml version="1.0" standalone="no"?>\r\n';
+  var svgBlob = new Blob([preface, svgData], {
+    type: "image/svg+xml;charset=utf-8",
+  });
+  var svgUrl = URL.createObjectURL(svgBlob);
+  document.getElementById("link").href = svgUrl;
+}
+
+function incrementNumberStep() {
+  currentStep++;
+
+  if (currentStep == countAllSteps) saveSvg();
+}
+
+function getAllSteps() {
+  var count = 1;
+
+  if (cnf.stars.propername) count++;
+  if (cnf.dsos.show) count++;
+  if (cnf.dsos.names) count++;
+  if (cnf.planets.show) count++;
+  if (cnf.planets.names) count++;
+  if (cnf.mw.show) count++;
+  if (cnf.graticule.show) count++;
+  if (cnf.constellations.show) count++;
+  if (cnf.constellations.names) count++;
+
+  return count;
+}

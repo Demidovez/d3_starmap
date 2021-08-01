@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <title>D3 StarMap</title>
     <link rel="stylesheet" href="lib/normalize.min.css" />
-    <script src="lib//d3.v3.min.js"></script>
-    <script src="lib//d3.geo.projection.v0.min.js"></script>
+    <script src="lib/d3.v3.min.js"></script>
+    <script src="lib/d3.geo.projection.v0.min.js"></script>
     <script src="./custom_symbols.js"></script>
     <script src="./moon.js"></script>
     <script src="./kepler.js"></script>
@@ -17,18 +17,19 @@
     </style>
   </head>
   <body>
+    <a href="#" id="link">DOWNLOAD</a>
     <script>
       const cnf = {
         width: 800,
         latitude: 0,
-        longtitude: 190,
+        longtitude: 0,
         date: new Date(),
         stars: {
           size: 5,
           exponent: -0.28,
           fill: "#ffffff",
           dataPath: "data/stars.6.json",
-          propername: false,
+          propername: true,
           propernameLang: "ru",
           propernamePath: "data/starnames.json",
           propernameStyle: {
@@ -42,7 +43,7 @@
           show: true,
           limit: 6,
           style: { fill: "#FFFFFF", width: 2, opacity: 1 },
-          names: false,
+          names: true,
           nameLang: "ru",
           namePath: "data/dsonames.json",
           nameStyle: {
@@ -109,13 +110,23 @@
             opacity: 0.8,
           },
         },
-        constellation: {
+        constellations: {
           show: true,
           dataPath: "data/constellations.lines.json",
           style: {
             stroke: "#cccccc",
             strokeWidth: 0.6,
             opacity: 0.8,
+          },
+          names: true,
+          nameLang: "ru",
+          namePath: "data/constellations.json",
+          nameStyle: {
+            fill: "#cccc99",
+            align: "center",
+            baseline: "middle",
+            opacity: 0.8,
+            font: "14px 'Lucida Sans Unicode', 'DejaVu Sans', Helvetica, Arial, sans-serif",
           },
         },
       };
@@ -124,6 +135,11 @@
       var starnames = {};
       var dsonames = {};
       var palentsnames = {};
+      var constellationnames = {};
+
+      // Счетчик шагов
+      var countAllSteps = getAllSteps();
+      var currentStep = 0;
 
       // Планета Земля
       var origin = null;
@@ -154,17 +170,22 @@
       var svg = d3
         .select("body")
         .append("svg")
+        .attr("id", "svg")
         .attr("width", width)
         .attr("height", height);
 
       // Сетка
-      var graticule = d3.geo.graticule().minorStep([15, 10]);
-      svg
-        .append("path")
-        .datum(graticule)
-        .attr("class", "graticule")
-        .attr("d", path)
-        .style(getGraticuleStyle(cnf.graticule.style));
+      if (cnf.graticule.show) {
+        var graticule = d3.geo.graticule().minorStep([15, 10]);
+        svg
+          .append("path")
+          .datum(graticule)
+          .attr("class", "graticule")
+          .attr("d", path)
+          .style(getGraticuleStyle(cnf.graticule.style));
+
+        incrementNumberStep();
+      }
 
       // Создаем элемент группы <g>, в который будут вкладываться все другие элементы
       var g = svg.append("g");
@@ -210,10 +231,11 @@
           .attr("cx", (d) => projection(d.geometry.coordinates)[0])
           .attr("cy", (d) => projection(d.geometry.coordinates)[1]);
 
+        incrementNumberStep();
+
         if (cnf.stars.propername) {
-          starNamesPromise.then(() =>
-            g
-              .selectAll(".starNames")
+          starNamesPromise.then(() => {
+            g.selectAll(".starNames")
               .data(
                 stars.filter(
                   (d) =>
@@ -230,8 +252,10 @@
                 return starPropername(d.id);
               })
               .attr({ dy: "-.5em", dx: "-.35em", class: "starNames" })
-              .style(getProperNameStyle(cnf.stars.propernameStyle))
-          );
+              .style(getProperNameStyle(cnf.stars.propernameStyle));
+
+            incrementNumberStep();
+          });
         }
       });
 
@@ -276,10 +300,11 @@
             .attr("cy", (d) => projection(d.geometry.coordinates)[1])
             .style(getDsosStyle(cnf.dsos.style));
 
+          incrementNumberStep();
+
           if (cnf.dsos.names) {
-            dsoNamesPromise.then(() =>
-              g
-                .selectAll(".dsoNames")
+            dsoNamesPromise.then(() => {
+              g.selectAll(".dsoNames")
                 .data(
                   dsos.filter(
                     (d) =>
@@ -296,15 +321,35 @@
                   return starDsoname(d.id);
                 })
                 .attr({ dy: "-.5em", dx: "-.35em", class: "dsoNames" })
-                .style(getProperNameStyle(cnf.dsos.nameStyle))
-            );
+                .style(getProperNameStyle(cnf.dsos.nameStyle));
+
+              incrementNumberStep();
+            });
           }
         });
       }
 
+      // Загружаем названия звезд
+      var constellationNamesPromise = new Promise((resolve, reject) => {
+        if (cnf.constellations.names) {
+          d3.json(cnf.constellations.namePath, function (error, names) {
+            if (error) {
+              console.log(error);
+              reject(error);
+              return;
+            }
+
+            constellationnames = names;
+            resolve();
+          });
+        } else {
+          resolve();
+        }
+      });
+
       // Загружаем созвездия
-      if (cnf.constellation.show) {
-        d3.json(cnf.constellation.dataPath, function (error, lines) {
+      if (cnf.constellations.show) {
+        d3.json(cnf.constellations.dataPath, function (error, lines) {
           if (error) {
             console.log(error);
             return;
@@ -320,7 +365,33 @@
             .append("path")
             .attr("class", "lines")
             .attr("d", path)
-            .style(getConstellationStyle(cnf.constellation.style));
+            .style(getConstellationStyle(cnf.constellations.style));
+
+          incrementNumberStep();
+
+          if (cnf.constellations.names) {
+            constellationNamesPromise.then(() => {
+              var constnames = getData(constellationnames, "ecliptic").features;
+
+              g.selectAll(".constellationnames")
+                .data(
+                  constnames.filter(
+                    (d) => clip(coordinates, d.geometry.coordinates) === 1
+                  )
+                )
+                .enter()
+                .append("text")
+                .attr("transform", function (d) {
+                  return point(d.geometry.coordinates);
+                })
+                .text(function (d) {
+                  return d.properties[cnf.constellations.nameLang];
+                })
+                .style(getProperNameStyle(cnf.constellations.nameStyle));
+
+              incrementNumberStep();
+            });
+          }
         });
       }
 
@@ -342,6 +413,8 @@
             .attr("class", "mway")
             .attr("d", path)
             .style(getMWStyle(cnf.mw.style));
+
+          incrementNumberStep();
         });
       }
 
@@ -426,6 +499,8 @@
               });
           }
 
+          incrementNumberStep();
+
           // Названия планет
           if (cnf.planets.names) {
             g.selectAll(".planetnames")
@@ -460,6 +535,8 @@
                 })
                 .style(getProperNameStyle(cnf.planets.nameStyle));
             }
+
+            incrementNumberStep();
           }
         });
       }
