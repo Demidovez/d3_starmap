@@ -3,36 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <title>D3 StarMap</title>
-    <!-- <link rel="stylesheet" href="lib/normalize.min.css" />
-    <script type="text/javascript" src="lib/d3.min.js"></script>
-    <script type="text/javascript" src="lib/d3.geo.projection.min.js"></script>
-    <script type="text/javascript" src="lib/topojson.v3.min.js"></script> -->
-    <link
-      rel="stylesheet"
-      href="//cdnjs.cloudflare.com/ajax/libs/normalize/3.0.1/normalize.min.css"
-    />
-    <script src="http://d3js.org/d3.v3.min.js"></script>
-    <script src="http://d3js.org/topojson.v1.min.js"></script>
-    <script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
+    <link rel="stylesheet" href="lib/normalize.min.css" />
+    <script src="lib//d3.v3.min.js"></script>
+    <script src="lib//d3.geo.projection.v0.min.js"></script>
+    <script src="./custom_symbols.js"></script>
+    <script src="./moon.js"></script>
+    <script src="./kepler.js"></script>
     <script src="./scripts.js"></script>
     <style>
       svg {
         background-color: #000000;
-      }
-      .star {
-        fill: #ffffff;
-      }
-      .graticule {
-        fill: none;
-        stroke: #cccccc;
-        stroke-width: 0.6;
-        opacity: 0.8;
-      }
-      .lines {
-        fill: none;
-        stroke: #cccccc;
-        stroke-width: 0.6;
-        opacity: 0.8;
       }
     </style>
   </head>
@@ -40,30 +20,119 @@
     <script>
       const cnf = {
         width: 800,
-        latitude: 52.6218,
-        longtitude: 29.7133,
+        latitude: 0,
+        longtitude: 190,
         date: new Date(),
         stars: {
           size: 5,
           exponent: -0.28,
-          data_path: "data/stars.6.json",
+          fill: "#ffffff",
+          dataPath: "data/stars.6.json",
+          propername: false,
+          propernameLang: "ru",
+          propernamePath: "data/starnames.json",
+          propernameStyle: {
+            fill: "#FFFFFF",
+            font: "13px Verdana, Georgia, Times, 'Times Roman', serif",
+            align: "center",
+          },
+          propernameLimit: 2.5,
+        },
+        dsos: {
+          show: true,
+          limit: 6,
+          style: { fill: "#FFFFFF", width: 2, opacity: 1 },
+          names: false,
+          nameLang: "ru",
+          namePath: "data/dsonames.json",
+          nameStyle: {
+            fill: "#FFFFFF",
+            font: "11px 'Lucida Sans Unicode', 'DejaVu Sans', Helvetica, Arial, serif",
+            align: "center",
+          },
+          nameLimit: 4,
+          size: 8,
+          exponent: -0.28,
+          dataPath: "data/dsos.bright.json",
+        },
+        planets: {
+          show: true,
+          which: [
+            "sol",
+            "mer",
+            "ven",
+            "ter",
+            "lun",
+            "mar",
+            "jup",
+            "sat",
+            "ura",
+            "nep",
+            "cer",
+            "plu",
+          ],
+          style: {
+            sol: { fill: "#ffff00", size: 12 },
+            mer: { fill: "#cccccc" },
+            ven: { fill: "#eeeecc" },
+            ter: { fill: "#00ccff" },
+            lun: { fill: "#ffffff", size: 12 },
+            mar: { fill: "#ff6600" },
+            cer: { fill: "#cccccc" },
+            ves: { fill: "#cccccc" },
+            jup: { fill: "#ffaa33" },
+            sat: { fill: "#ffdd66" },
+            ura: { fill: "#66ccff" },
+            nep: { fill: "#6666ff" },
+            plu: { fill: "#aaaaaa" },
+            eri: { fill: "#eeeeee" },
+          },
+          dataPath: "data/planets.json",
+          names: true,
+          nameStyle: {
+            fill: "#FFFFFF",
+            font: "14px 'Lucida Sans Unicode', 'DejaVu Sans', sans-serif",
+            align: "center",
+          },
+          nameLang: "ru",
+        },
+        mw: {
+          show: true,
+          style: { fill: "#ffffff", opacity: "0.15" },
+          dataPath: "data/mw.json",
         },
         graticule: {
           show: true,
+          style: {
+            stroke: "#cccccc",
+            strokeWidth: 0.6,
+            opacity: 0.8,
+          },
         },
         constellation: {
           show: true,
-          data_path: "data/constellations.lines.json",
+          dataPath: "data/constellations.lines.json",
+          style: {
+            stroke: "#cccccc",
+            strokeWidth: 0.6,
+            opacity: 0.8,
+          },
         },
       };
+
+      // Названия объектов
+      var starnames = {};
+      var dsonames = {};
+      var palentsnames = {};
+
+      // Планета Земля
+      var origin = null;
 
       // Ширина и высота будущей карты
       var width = cnf.width;
       var height = cnf.width;
 
-      var localZone = -cnf.date.getTimezoneOffset();
-      var timeZone = localZone;
-      var dtc = new Date(cnf.date.getTime() - (timeZone - localZone) * 60000);
+      var dtc = new Date(cnf.date.getTime());
       var zenith = transformDeg(
         getAzimutPoint(dtc, [90, 0], [cnf.latitude, cnf.longtitude]),
         euler["ecliptic"]
@@ -71,16 +140,12 @@
 
       var coordinates = [-zenith[0], -zenith[1], 0];
 
-      console.log(coordinates);
-
       // Создаём функцию проекции
       var projection = getProjection()
         .scale(width / 2)
         .clipAngle(90)
         .translate([width / 2, height / 2])
         .rotate(coordinates);
-
-      // console.log(projection.center());
 
       // Создаем функцию, которая будет преобразовывать географические координаты в формат пути для элемента <path>
       var path = d3.geo.path().projection(projection);
@@ -98,13 +163,32 @@
         .append("path")
         .datum(graticule)
         .attr("class", "graticule")
-        .attr("d", path);
+        .attr("d", path)
+        .style(getGraticuleStyle(cnf.graticule.style));
 
       // Создаем элемент группы <g>, в который будут вкладываться все другие элементы
       var g = svg.append("g");
 
-      // Загружаем карту
-      d3.json(cnf.stars.data_path, function (error, stars) {
+      // Загружаем названия звезд
+      var starNamesPromise = new Promise((resolve, reject) => {
+        if (cnf.stars.propername) {
+          d3.json(cnf.stars.propernamePath, function (error, names) {
+            if (error) {
+              console.log(error);
+              reject(error);
+              return;
+            }
+
+            starnames = names;
+            resolve();
+          });
+        } else {
+          resolve();
+        }
+      });
+
+      // Загружаем звезды
+      d3.json(cnf.stars.dataPath, function (error, stars) {
         if (error) {
           console.log(error);
           return;
@@ -115,45 +199,270 @@
 
         // Рисуем звезды
         g.selectAll(".star")
-          .data(stars)
+          .data(
+            stars.filter((d) => clip(coordinates, d.geometry.coordinates) === 1)
+          )
           .enter()
           .append("circle")
+          .style("fill", cnf.stars.fill)
           .attr("class", "star")
-          .attr("opacity", function (d) {
-            var geoangle = d3.geo.distance(
-              [-coordinates[0], -coordinates[1]],
-              d.geometry.coordinates
-            );
-
-            if (geoangle > 1.5707963267949) {
-              return "0";
-            } else {
-              return "1.0";
-            }
-          })
           .attr("r", (d) => starSize(d))
           .attr("cx", (d) => projection(d.geometry.coordinates)[0])
           .attr("cy", (d) => projection(d.geometry.coordinates)[1]);
+
+        if (cnf.stars.propername) {
+          starNamesPromise.then(() =>
+            g
+              .selectAll(".starNames")
+              .data(
+                stars.filter(
+                  (d) =>
+                    d.properties.mag <= cnf.stars.propernameLimit &&
+                    clip(coordinates, d) === 1
+                )
+              )
+              .enter()
+              .append("text")
+              .attr("transform", function (d) {
+                return point(d.geometry.coordinates);
+              })
+              .text(function (d) {
+                return starPropername(d.id);
+              })
+              .attr({ dy: "-.5em", dx: "-.35em", class: "starNames" })
+              .style(getProperNameStyle(cnf.stars.propernameStyle))
+          );
+        }
       });
+
+      // Загружаем названия глубокихи космических объектов
+      var dsoNamesPromise = new Promise((resolve, reject) => {
+        if (cnf.dsos.names) {
+          d3.json(cnf.dsos.namePath, function (error, names) {
+            if (error) {
+              console.log(error);
+              reject(error);
+              return;
+            }
+
+            dsonames = names;
+            resolve();
+          });
+        } else {
+          resolve();
+        }
+      });
+
+      // Загружаем глубокие космические объекты
+      if (cnf.dsos.show) {
+        d3.json(cnf.dsos.dataPath, function (error, dsos) {
+          if (error) return console.warn(error);
+
+          var dsos = getData(dsos, "ecliptic").features;
+
+          g.selectAll(".dso")
+            .data(
+              dsos.filter(
+                (d) =>
+                  d.properties.mag <= cnf.dsos.limit &&
+                  clip(coordinates, d.geometry.coordinates) === 1
+              )
+            )
+            .enter()
+            .append("circle")
+            .attr("class", "dso")
+            .attr("r", (d) => dsosSize(d))
+            .attr("cx", (d) => projection(d.geometry.coordinates)[0])
+            .attr("cy", (d) => projection(d.geometry.coordinates)[1])
+            .style(getDsosStyle(cnf.dsos.style));
+
+          if (cnf.dsos.names) {
+            dsoNamesPromise.then(() =>
+              g
+                .selectAll(".dsoNames")
+                .data(
+                  dsos.filter(
+                    (d) =>
+                      d.properties.mag <= cnf.dsos.nameLimit &&
+                      clip(coordinates, d.geometry.coordinates) === 1
+                  )
+                )
+                .enter()
+                .append("text")
+                .attr("transform", function (d) {
+                  return point(d.geometry.coordinates);
+                })
+                .text(function (d) {
+                  return starDsoname(d.id);
+                })
+                .attr({ dy: "-.5em", dx: "-.35em", class: "dsoNames" })
+                .style(getProperNameStyle(cnf.dsos.nameStyle))
+            );
+          }
+        });
+      }
 
       // Загружаем созвездия
-      d3.json(cnf.constellation.data_path, function (error, lines) {
-        if (error) {
-          console.log(error);
-          return;
-        }
+      if (cnf.constellation.show) {
+        d3.json(cnf.constellation.dataPath, function (error, lines) {
+          if (error) {
+            console.log(error);
+            return;
+          }
 
-        // Получаем массив созвездий из файла
-        var lines = getData(lines, "ecliptic").features;
+          // Получаем массив созвездий из файла
+          var lines = getData(lines, "ecliptic").features;
 
-        // Рисуем созвездия
-        g.selectAll(".lines")
-          .data(lines)
-          .enter()
-          .append("path")
-          .attr("class", "lines")
-          .attr("d", path);
-      });
+          // Рисуем созвездия
+          g.selectAll(".lines")
+            .data(lines)
+            .enter()
+            .append("path")
+            .attr("class", "lines")
+            .attr("d", path)
+            .style(getConstellationStyle(cnf.constellation.style));
+        });
+      }
+
+      // Загружаем млечный путь
+      if (cnf.mw.show) {
+        d3.json(cnf.mw.dataPath, function (error, mw) {
+          if (error) {
+            console.log(error);
+            return;
+          }
+
+          var mw = getData(mw, "ecliptic").features;
+
+          // Рисуем млечный путь
+          g.selectAll(".mway")
+            .data(mw)
+            .enter()
+            .append("path")
+            .attr("class", "mway")
+            .attr("d", path)
+            .style(getMWStyle(cnf.mw.style));
+        });
+      }
+
+      // Загружаем планеты
+      if (cnf.planets.show) {
+        d3.json(cnf.planets.dataPath, function (error, planets) {
+          if (error) {
+            console.log(error);
+            return;
+          }
+
+          // Получаем массив звезд из файла
+          var planets = getPlanets(planets);
+
+          // Рисуем планеты
+          g.selectAll(".planet")
+            .data(planets)
+            .enter()
+            .append("path")
+            .attr("class", "planet");
+
+          var o = origin(cnf.date).spherical(),
+            jp = { type: "FeatureCollection", features: [] },
+            jlun = { type: "FeatureCollection", features: [] };
+
+          g.selectAll(".planet").each(function (d) {
+            var id = d.id(),
+              r = 12,
+              p = d(cnf.date).equatorial(o);
+
+            p.ephemeris.pos = transformDeg(p.ephemeris.pos, euler["ecliptic"]);
+
+            if (clip(coordinates, p.ephemeris.pos) === 1) {
+              if (id === "lun") jlun.features.push(createEntry(p));
+              else jp.features.push(createEntry(p));
+            }
+          });
+
+          g.selectAll(".planets")
+            .data(jp.features)
+            .enter()
+            .append("circle")
+            .attr("class", "planets")
+            .attr("r", (d) => planetSize(d))
+            .attr("cx", (d) => projection(d.geometry.coordinates)[0])
+            .attr("cy", (d) => projection(d.geometry.coordinates)[1])
+            .style("fill", (d) => getPlanetStyle(d, cnf.planets.style).fill);
+
+          // Отдельно Луна
+          if (jlun.features.length > 0) {
+            var rl = has(cnf.planets.style.lun, "size")
+              ? cnf.planets.style.lun.size - 1
+              : 11;
+            g.selectAll(".dmoon")
+              .data(jlun.features)
+              .enter()
+              .append("path")
+              .style("fill", "#555577")
+              .attr("class", "darkluna")
+              .attr("transform", function (d) {
+                return point(d.geometry.coordinates);
+              })
+              .attr("d", function (d) {
+                return d3.svg
+                  .symbol()
+                  .type("circle")
+                  .size(rl * rl)();
+              });
+            g.selectAll(".moon")
+              .data(jlun.features)
+              .enter()
+              .append("path")
+              .style("fill", "#FFFFFF")
+              .attr("class", function (d) {
+                return "planets " + d.id;
+              })
+              .attr("transform", function (d) {
+                return point(d.geometry.coordinates);
+              })
+              .attr("d", function (d) {
+                return moonSymbol(d.properties, rl);
+              });
+          }
+
+          // Названия планет
+          if (cnf.planets.names) {
+            g.selectAll(".planetnames")
+              .data(jp.features)
+              .enter()
+              .append("text")
+              .attr("transform", function (d) {
+                return point(d.geometry.coordinates);
+              })
+              .text(function (d) {
+                return d.properties.name;
+              })
+              .attr({ dy: "-.75em" })
+              .attr("class", function (d) {
+                return "planetNames " + d.id;
+              })
+              .style(getProperNameStyle(cnf.planets.nameStyle));
+            if (jlun.features.length > 0) {
+              g.selectAll(".moonname")
+                .data(jlun.features)
+                .enter()
+                .append("text")
+                .attr("transform", function (d) {
+                  return point(d.geometry.coordinates);
+                })
+                .text(function (d) {
+                  return d.properties.name;
+                })
+                .attr({ dy: "-.75em" })
+                .attr("class", function (d) {
+                  return "planetNames " + d.id;
+                })
+                .style(getProperNameStyle(cnf.planets.nameStyle));
+            }
+          }
+        });
+      }
     </script>
   </body>
 </html>
